@@ -71,6 +71,10 @@ public class Limelight {
         return runningTotal / numSamples;
     }
 
+
+    
+    
+
     /**
      * Checks to see if the Limelight has a valid target
      */

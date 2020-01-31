@@ -25,7 +25,6 @@ public class LazyCANSparkMax extends CANSparkMax {
 		// enableVoltageCompensation(true);
 		// configVoltageCompSaturation(12, 10);
 	}
-
 	@Override
 	public void set(double outputValue) {
 

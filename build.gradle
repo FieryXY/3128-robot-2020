@@ -8,6 +8,7 @@ targetCompatibility = JavaVersion.VERSION_11
 
 def ROBOT_MAIN_CLASS = "org.team3128.athos.main.MainAthos"
 
+
 // Define my targets (RoboRIO) and artifacts (deployable files)
 // This is added by GradleRIO's backing project EmbeddedTools.
 deploy {
@@ -22,7 +23,8 @@ deploy {
     }
     artifacts {
         frcJavaArtifact('frcJava') {
-            targets << "roborio"
+        targets << "roborio" //<-- PROBLEM
+        //targets << "roborio"
             // Debug can be overridden by command line, for use with VSCode
             debug = frc.getDebugOrDefault(false)
         }
@@ -31,7 +33,7 @@ deploy {
             // The directory below is the local directory to deploy
             files = fileTree(dir: 'src/main/deploy')
             // Deploy to RoboRIO target, into /home/lvuser/deploy
-            targets << "roborio"
+        targets << "roborio" //<-- PROBLEM
             directory = '/home/lvuser/deploy'
         }
     }
@@ -56,6 +58,7 @@ dependencies {
 
     compile 'org.java-websocket:Java-WebSocket:1.3.8'
 
+//---------PROBLEMS------------
     compile files('lib/kryo-4.0.0.jar')
     compile files('lib/kryo-4.0.0-sources.jar')
     compile files('lib/minlog-info-1.2.jar')

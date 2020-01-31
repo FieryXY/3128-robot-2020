@@ -11,7 +11,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableBuilder;
  * @author Kian, Jamie
  *
  */
-public class AnalogPotentiometerEncoder extends SendableBase implements IDistanceEncoder, Sendable {
+public class AnalogPotentiometerEncoder implements IDistanceEncoder, Sendable {
 	private AnalogInput enc;
 	private double degreesPerVolt;
 	private double offset;

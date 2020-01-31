@@ -4,18 +4,21 @@ import com.ctre.phoenix.motorcontrol.ControlMode;
 import com.ctre.phoenix.motorcontrol.FeedbackDevice;
 
 import org.team3128.common.generics.RobotConstants;
-
+import java.util.List;
 import org.team3128.common.NarwhalRobot;
 import org.team3128.common.control.trajectory.Trajectory;
 import org.team3128.common.control.trajectory.TrajectoryGenerator;
 import org.team3128.common.control.trajectory.constraint.TrajectoryConstraint;
 import org.team3128.common.drive.DriveCommandRunning;
+import org.team3128.common.hardware.limelight.Compute2D;
 import org.team3128.common.hardware.limelight.Limelight;
+import org.team3128.common.hardware.limelight.LimelightKey;
 import org.team3128.common.hardware.gyroscope.Gyro;
 import org.team3128.common.hardware.gyroscope.NavX;
 import org.team3128.common.utility.units.Angle;
 import org.team3128.common.utility.units.Length;
 import org.team3128.common.vision.CmdHorizontalOffsetFeedbackDrive;
+import org.team3128.athos.autonomous.deprecated.CmdAutoLimelight;
 import org.team3128.athos.subsystems.Constants;
 import org.team3128.common.utility.Log;
 import org.team3128.common.utility.RobotMath;
@@ -35,6 +38,7 @@ import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.command.Command;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 import edu.wpi.first.networktables.NetworkTable;
@@ -62,6 +66,8 @@ public class MainAthos extends NarwhalRobot {
     public ListenerManager lm;
     public Gyro gyro;
 
+    public Command cmd; 
+
     public PIDConstants visionPID, blindPID;
 
     public NetworkTable table;
@@ -74,9 +80,12 @@ public class MainAthos extends NarwhalRobot {
     public double startTime = 0;
 
     public String trackerCSV = "Time, X, Y, Theta, Xdes, Ydes";
+    public Limelight ballLimelight = new Limelight("limelight-c", 26 * Angle.DEGREES, 6.15 * Length.in, 0 * Length.in,
+            7 * Length.in);
 
     public ArrayList<Pose2D> waypoints = new ArrayList<Pose2D>();
     public Trajectory trajectory;
+    private DriveCommandRunning driveCmdRunning;
 
     @Override
     protected void constructHardware() {
@@ -122,11 +131,16 @@ public class MainAthos extends NarwhalRobot {
         // Constants.inchesToMeters, Rotation2D.fromDegrees(20)));
         // waypoints.add(new Pose2D(140 * Constants.inchesToMeters, 85 *
         // Constants.inchesToMeters, Rotation2D.fromDegrees(45)));
-        waypoints.add(
-                new Pose2D(0 * Constants.inchesToMeters, 70 * Constants.inchesToMeters, Rotation2D.fromDegrees(-45)));
+        //waypoints.add(
+               // new Pose2D(0 * Constants.inchesToMeters, 70 * Constants.inchesToMeters, Rotation2D.fromDegrees(-45)));
 
-        trajectory = TrajectoryGenerator.generateTrajectory(waypoints, new ArrayList<TrajectoryConstraint>(), 0, 0,
-                120 * Constants.inchesToMeters, 0.5, false);
+        //trajectory = TrajectoryGenerator.generateTrajectory(waypoints, new ArrayList<TrajectoryConstraint>(), 0, 0,
+                //120 * Constants.inchesToMeters, 0.5, false);
+
+        //Vision
+        visionPID = new PIDConstants(0.57, 0.02, 0.0, 0.00001);
+        blindPID = new PIDConstants(0.1, 0, 0, 0);
+        driveCmdRunning = new DriveCommandRunning();
     }
 
     @Override
@@ -142,13 +156,13 @@ public class MainAthos extends NarwhalRobot {
         lm.nameControl(new Button(6), "PrintCSV");
         lm.nameControl(new Button(3), "ClearTracker");
         lm.nameControl(new Button(4), "ClearCSV");
+        
 
         lm.addMultiListener(() -> {
             drive.arcadeDrive(-0.7 * RobotMath.thresh(lm.getAxis("MoveTurn"), 0.1),
                     -1.0 * RobotMath.thresh(lm.getAxis("MoveForwards"), 0.1), -1.0 * lm.getAxis("Throttle"), true);
 
         }, "MoveTurn", "MoveForwards", "Throttle");
-
         lm.nameControl(ControllerExtreme3D.TRIGGER, "AlignToTarget");
         lm.addButtonDownListener("AlignToTarget", () -> {
             // TODO: Add current implementation of vision alignment
@@ -174,6 +188,23 @@ public class MainAthos extends NarwhalRobot {
             robotTracker.resetOdometry();
         });
 
+        lm.nameControl(new Button(12), "FindBall");
+        lm.addButtonDownListener("FindBall", () -> {
+            //If there is no valid target then nothing happens
+            //Possible Problems: One Sample
+            //Gets Target Data
+            cmd = new CmdAutoLimelight(ballLimelight, gyro, visionPID, blindPID, driveCmdRunning);
+
+            cmd.start();
+        });
+        lm.addButtonUpListener("FindBall", () -> {
+            //If there is no valid target then nothing happens
+            //Possible Problems: One Sample
+            //Gets Target Data
+            
+            cmd.cancel();
+            cmd = null;
+        });
     }
 
     @Override
@@ -282,6 +313,8 @@ public class MainAthos extends NarwhalRobot {
         drive.startTrajectory();
         startTime = Timer.getFPGATimestamp();
     }
+
+    
 
     @Override
     protected void disabledInit() {

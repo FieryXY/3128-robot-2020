@@ -273,7 +273,6 @@ public class SRXTankDrive implements ITankDrive {
 		leftMotors.set(ControlMode.PercentOutput, powL);
 		rightMotors.set(ControlMode.PercentOutput, powR);
 	}
-
 	/**
 	 * Drive by providing motor powers for each side.
 	 *

@@ -40,6 +40,7 @@ public class Compute2D {
 
         double targetHorizontalArcAngle = inputData.boundingBoxPixelWidth * LimelightConstants.HORIZONTAL_FOV
                 / LimelightConstants.SCREEN_WIDTH;
+        
 
         outputData.yPrime = limelight.calculateYPrimeFromTY(inputData.verticalOffsetAngle, targetHeight);
         outputData.xPrime = outputData.yPrime * RobotMath.tan(inputData.horizontalOffsetAngle);
@@ -61,6 +62,7 @@ public class Compute2D {
         return outputData;
     }
 
+    //Nice
     public static Compute2DLocalization deadCompute2D(Limelight limelight, Compute2DInput inputData,
             double targetHeight) {
         Compute2DLocalization outputData = new Compute2DLocalization();

@@ -316,6 +316,10 @@ public class MainAramis extends NarwhalRobot {
         });
     }
 
+    private void getBall() {
+        
+    }
+
     @Override
     protected void teleopPeriodic() {
     }
