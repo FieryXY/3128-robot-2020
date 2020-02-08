@@ -18,7 +18,7 @@ import org.team3128.common.hardware.gyroscope.NavX;
 import org.team3128.common.utility.units.Angle;
 import org.team3128.common.utility.units.Length;
 import org.team3128.common.vision.CmdHorizontalOffsetFeedbackDrive;
-import org.team3128.athos.autonomous.deprecated.CmdAutoLimelight;
+import org.team3128.athos.autonomous.deprecated.CmdAutoBall;
 import org.team3128.athos.subsystems.Constants;
 import org.team3128.common.utility.Log;
 import org.team3128.common.utility.RobotMath;
@@ -33,6 +33,7 @@ import org.team3128.common.utility.math.Rotation2D;
 import org.team3128.athos.subsystems.NEODrive;
 import org.team3128.athos.subsystems.RobotTracker;
 
+import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.RobotBase;
@@ -52,15 +53,27 @@ import edu.wpi.first.networktables.NetworkTableInstance;
 import java.util.ArrayList;
 import java.util.concurrent.*;
 
+import edu.wpi.first.wpilibj.PowerDistributionPanel;
+
 import org.team3128.common.generics.ThreadScheduler;
 
+import org.team3128.common.hardware.motor.LazyCANSparkMax;
+import org.team3128.common.hardware.motor.LazyTalonFX;
+import com.ctre.phoenix.motorcontrol.can.VictorSPX;
+import org.team3128.common.drive.DriveSignal;
+import org.team3128.common.utility.test_suite.*;
+import org.team3128.common.drive.Drive;
+
 public class MainAthos extends NarwhalRobot {
-    NEODrive drive = NEODrive.getInstance();
+    public static NEODrive drive = NEODrive.getInstance();
     RobotTracker robotTracker = RobotTracker.getInstance();
 
     ExecutorService executor = Executors.newFixedThreadPool(4);
     ThreadScheduler scheduler = new ThreadScheduler();
     Thread auto;
+    
+    Limelight limelight = new Limelight("limelight-c", 26.0, 0, 0, 30);
+    Limelight[] limelights = new Limelight[1];
 
     public Joystick joystick;
     public ListenerManager lm;
@@ -78,7 +91,7 @@ public class MainAthos extends NarwhalRobot {
     public double kF = Constants.K_AUTO_LEFT_F;
 
     public double startTime = 0;
-
+    public PowerDistributionPanel pdp;
     public String trackerCSV = "Time, X, Y, Theta, Xdes, Ydes";
     public Limelight ballLimelight = new Limelight("limelight-c", 26 * Angle.DEGREES, 6.15 * Length.in, 0 * Length.in,
             7 * Length.in);
@@ -86,6 +99,23 @@ public class MainAthos extends NarwhalRobot {
     public ArrayList<Pose2D> waypoints = new ArrayList<Pose2D>();
     public Trajectory trajectory;
     private DriveCommandRunning driveCmdRunning;
+
+
+    public Command ballCommand;
+    public Limelight bottomLimelight;
+    private DriveCommandRunning driveCmdRunning;
+
+    public static DigitalInput limitSwitch;
+
+    public ErrorCatcherUtility errorCatcher;
+    public static CanDevices[] CanChain = new CanDevices[42];
+    public static void setCanChain(){
+        CanChain[0] = Constants.rightDriveLeader;
+        CanChain[1] = Constants.rightDriveFollower;
+        CanChain[2] = Constants.leftDriveFollower;
+        CanChain[3] = Constants.leftDriveLeader;
+        CanChain[4] = Constants.PDP;
+    }
 
     @Override
     protected void constructHardware() {
@@ -104,10 +134,22 @@ public class MainAthos extends NarwhalRobot {
         lm = new ListenerManager(joystick);
         addListenerManager(lm);
 
+        bottomLimelight = new Limelight("limelight-c", 20 * Angle.DEGREES,  6.15 * Length.in, 11 * Length.in, 14.5 * Length.in);
+
         // display PID coefficients on SmartDashboard
         SmartDashboard.putNumber("P Gain", kP);
         SmartDashboard.putNumber("D Gain", kD);
         SmartDashboard.putNumber("F Gain", kF);
+
+
+        visionPID = new PIDConstants(0.57, 0.02, 0.0, 0.00003);
+		    blindPID = new PIDConstants(0.23, 0, 0, 0);
+        driveCmdRunning = new DriveCommandRunning();
+    
+        limitSwitch = new DigitalInput(0);
+
+        limelights[0] = limelight;
+
 
         // straight
         // waypoints.add(new Pose2D(0, 0, Rotation2D.fromDegrees(180)));
@@ -134,13 +176,33 @@ public class MainAthos extends NarwhalRobot {
         //waypoints.add(
                // new Pose2D(0 * Constants.inchesToMeters, 70 * Constants.inchesToMeters, Rotation2D.fromDegrees(-45)));
 
-        //trajectory = TrajectoryGenerator.generateTrajectory(waypoints, new ArrayList<TrajectoryConstraint>(), 0, 0,
-                //120 * Constants.inchesToMeters, 0.5, false);
-
-        //Vision
-        visionPID = new PIDConstants(0.57, 0.02, 0.0, 0.00001);
-        blindPID = new PIDConstants(0.1, 0, 0, 0);
-        driveCmdRunning = new DriveCommandRunning();
+        trajectory = TrajectoryGenerator.generateTrajectory(waypoints, new ArrayList<TrajectoryConstraint>(), 0, 0,
+                120 * Constants.inchesToMeters, 0.5, false);
+         //Error Catcher (Auto Test Suite)
+         pdp = new PowerDistributionPanel(0);
+         Constants.rightDriveLeader = new CanDevices(CanDevices.DeviceType.SPARK, 1, "Right Drive Leader", null , null, NEODrive.rightSpark, null, null);
+         Constants.rightDriveFollower = new CanDevices(CanDevices.DeviceType.SPARK, 2, "Right Drive Follower", null, null , NEODrive.rightSparkSlave, null, null);
+         Constants.leftDriveLeader = new CanDevices(CanDevices.DeviceType.SPARK, 3, "Left Drive Leader", null , null, NEODrive.leftSpark, null, null);
+         Constants.leftDriveFollower = new CanDevices(CanDevices.DeviceType.SPARK, 4, "Left Drive Follower", null, null , NEODrive.leftSparkSlave, null, null);
+         Constants.PDP = new CanDevices(CanDevices.DeviceType.PDP, 0, "Power Distribution Panel", null, null, null, null, pdp);
+         setCanChain();
+         errorCatcher = new ErrorCatcherUtility(CanChain,limelights,drive);
+         
+ 
+         // DCU
+         // DriveCalibrationUtility.initialize(gyro, visionPID);
+         //dcu = DriveCalibrationUtility.getInstance();
+ 
+         //dcu.initNarwhalDashboard();
+         NarwhalDashboard.addButton("ErrorCatcher", (boolean down) -> {
+             if (down) {
+                 //Janky fix
+                 
+                errorCatcher.testEverything();
+                
+               
+             }
+         });
     }
 
     @Override
@@ -156,13 +218,32 @@ public class MainAthos extends NarwhalRobot {
         lm.nameControl(new Button(6), "PrintCSV");
         lm.nameControl(new Button(3), "ClearTracker");
         lm.nameControl(new Button(4), "ClearCSV");
+
         
+
+        lm.nameControl(new Button(7), "PursueBall");
+        lm.nameControl(new Button(12), "LimitSwitch");
+
 
         lm.addMultiListener(() -> {
             drive.arcadeDrive(-0.7 * RobotMath.thresh(lm.getAxis("MoveTurn"), 0.1),
                     -1.0 * RobotMath.thresh(lm.getAxis("MoveForwards"), 0.1), -1.0 * lm.getAxis("Throttle"), true);
 
         }, "MoveTurn", "MoveForwards", "Throttle");
+
+        lm.addButtonDownListener("PursueBall", () -> {
+            ballCommand = new CmdAutoBall(gyro, bottomLimelight, driveCmdRunning, visionPID, blindPID);
+			ballCommand.start();
+        });
+        lm.addButtonUpListener("PursueBall", () -> {
+            ballCommand.cancel();
+            ballCommand = null;
+        });
+
+        lm.addButtonDownListener("LimitSwitch", () -> {
+            Log.info("MainAthos.java", "[Limit Switch]" + limitSwitch.get());
+        });
+
         lm.nameControl(ControllerExtreme3D.TRIGGER, "AlignToTarget");
         lm.addButtonDownListener("AlignToTarget", () -> {
             // TODO: Add current implementation of vision alignment
@@ -189,14 +270,7 @@ public class MainAthos extends NarwhalRobot {
         });
 
         lm.nameControl(new Button(12), "FindBall");
-        lm.addButtonDownListener("FindBall", () -> {
-            //If there is no valid target then nothing happens
-            //Possible Problems: One Sample
-            //Gets Target Data
-            cmd = new CmdAutoLimelight(ballLimelight, gyro, visionPID, blindPID, driveCmdRunning);
-
-            cmd.start();
-        });
+      
         lm.addButtonUpListener("FindBall", () -> {
             //If there is no valid target then nothing happens
             //Possible Problems: One Sample

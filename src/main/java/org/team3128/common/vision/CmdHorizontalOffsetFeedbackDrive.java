@@ -16,6 +16,9 @@ import org.team3128.common.utility.RobotMath;
 import org.team3128.common.utility.datatypes.PIDConstants;
 import org.team3128.common.utility.units.Angle;
 
+import org.team3128.common.drive.DriveSignal;
+import org.team3128.common.drive.AutoDriveSignal;
+
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.command.Command;
 
@@ -212,8 +215,12 @@ public class CmdHorizontalOffsetFeedbackDrive extends Command {
 
             Log.info("CmdAutoAim", "L: " + leftPower + "; R: " + rightPower);
 
+<<<<<<< HEAD
             //drive.tankDrive(leftPower, rightPower);
             drive.setWheelVelocity(new DriveSignal(leftPower, rightPower));
+=======
+            drive.setWheelPower(new DriveSignal(0.7*leftPower, 0.7*rightPower)); //TODO: remove the 0.7's once testing is done
+>>>>>>> upstream/master
 
             previousTime = currentTime;
             previousError = currentError;
