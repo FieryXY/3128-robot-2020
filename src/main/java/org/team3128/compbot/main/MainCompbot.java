@@ -211,6 +211,17 @@ public class MainCompbot extends NarwhalRobot {
 
         //     }
         // });
+        
+        NarwhalDashboard.addButton("ManualVision", (boolean down) -> {
+            if(down) {
+                manualShoot = false;
+            }
+        });
+         NarwhalDashboard.addButton("ManualAlign", (boolean down) -> {
+            if(down) {
+                manualShoot = true;
+            }
+        });
         NarwhalDashboard.addButton("SetStateLong", (boolean down) -> {
                  if (down) {               
                     stateTracker.setState(RobotState.LONG_RANGE);
