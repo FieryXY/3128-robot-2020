@@ -14,11 +14,24 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 public class Shooter extends Threaded {
+    public static enum ShooterState {
+        OFF(0),
+        LONG_RANGE(4800), // long range shooting
+        MID_RANGE(4080), // mid range shooting
+        SHORT_RANGE(3700); // short range shooting 3700
+
+        public double shooterRPM;
+
+        private ShooterState(double RPM) {
+            this.shooterRPM = RPM;
+        }
+    }
 
     public static final Shooter instance = new Shooter();
     public static LazyCANSparkMax LEFT_SHOOTER;
     public static LazyCANSparkMax RIGHT_SHOOTER;
     public static CANEncoder SHOOTER_ENCODER;
+    public boolean driverReady = false;
 
     public static boolean DEBUG = true;
     public static double setpoint = 0; // rotations per minute
@@ -29,6 +42,10 @@ public class Shooter extends Threaded {
     double prevError = 0;
 
     int plateauCount = 0;
+
+
+    private StateTracker stateTracker = StateTracker.getInstance();
+    public ShooterState SHOOTER_STATE = ShooterState.MID_RANGE;
 
     private Shooter() {
         configMotors();
@@ -62,12 +79,16 @@ public class Shooter extends Threaded {
     public void setSetpoint(double passedSetpoint) {
         plateauCount = 0;
         setpoint = passedSetpoint;
-        Log.info("Shooter", "Set setpoint to" + String.valueOf(setpoint));
+        //Log.info("Shooter", "Set setpoint to" + String.valueOf(setpoint));
+    }
+
+    public void setState(ShooterState shooterState) {
+        SHOOTER_STATE = shooterState;
+        setSetpoint(shooterState.shooterRPM);
     }
 
     @Override
     public void update() {
-        SmartDashboard.putNumber("plataue count", plateauCount);
         current = getRPM();
         // Log.info("Shooter", "Shooter RPM is " + String.valueOf(current));
         error = setpoint - current;
@@ -107,12 +128,17 @@ public class Shooter extends Threaded {
             output = -1;
         }
 
-        //LEFT_SHOOTER.set(output);
+        if(setpoint == 0) {
+            output = 0;
+        }
+
+        LEFT_SHOOTER.set(output);
         RIGHT_SHOOTER.set(-output);
     }
 
     public double shooterFeedForward(double desiredSetpoint) {
-        double ff = (0.00211 * desiredSetpoint) - 1; // 0.051
+        //double ff = (0.00211 * desiredSetpoint) - 2; // 0.051
+        double ff = (0.00147 * desiredSetpoint)  - 0.2; // 0
         if (setpoint != 0) {
             return ff;
         } else {
@@ -120,12 +146,15 @@ public class Shooter extends Threaded {
         }
     }
 
-    public double getRPMFromDistance(double distance) {
-        return 4000;
-        // TODO: relationship between RPM and distance
+    public double getRPMFromDistance() {
+        return stateTracker.getState().targetShooterState.shooterRPM;
     }
 
     public boolean isReady() {
         return (plateauCount > Constants.ShooterConstants.PLATEAU_COUNT);
+    }
+
+    public void queue(){
+        setState(stateTracker.getState().targetShooterState);
     }
 }

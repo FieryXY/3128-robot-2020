@@ -257,7 +257,7 @@ public class CmdHorizontalOffsetFeedbackDrive extends Command {
         }
         txLimelight.setLEDMode(LEDMode.OFF);
         distanceLimelight.setLEDMode(LEDMode.OFF);
-
+        
         NarwhalDashboard.put("align_status", "blind");
 
         cmdRunning.isRunning = false;
