@@ -67,7 +67,7 @@ import java.util.concurrent.*;
 import org.team3128.common.generics.ThreadScheduler;
 
 public class MainCompbot extends NarwhalRobot {
-
+    private boolean manualShoot;
     public Command triggerCommand;
     public Command armFFCommand;
     public Command shooterFFCommand;
